@@ -1,2 +1,2 @@
 # zuuid
-UUID application for Erlang.
+An RFC 4122 implementation in Erlang.

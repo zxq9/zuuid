@@ -1,0 +1,8 @@
+#! /usr/bin/env escript
+-module(make).
+-export([main/1]).
+
+main(_) ->
+    true = code:add_patha("ebin"),
+    Modules = make:all(),
+    io:format("~p~n", [Modules]).

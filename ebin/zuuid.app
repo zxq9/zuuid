@@ -1,0 +1,10 @@
+{application,
+ zuuid,
+ [{description, "UUID generator and utilities."},
+  {vsn, "0.1.0"},
+  {applications, [stdlib, kernel]},
+  {modules, [zuuid,
+             zuuid_sup,
+             zuuid_man]},
+  {registered, [zuuid_man]},
+  {mod, {zuuid, []}}]}.

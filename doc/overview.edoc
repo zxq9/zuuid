@@ -1,0 +1,106 @@
+@author Craig Everett <ceverett@zxq9.com> [http://zxq9.com/projects/zuuid/]
+@copyright 2016 Craig Everett
+@version 1.0.0
+@title Welcome to zUUID!
+
+@doc
+zUUID is a simple and complete implementation of
+<a href="http://tools.ietf.org/html/rfc4122">RFC 4122</a> UUID version 1, 3, 4 and 5 and
+UUID version 2 (DCE Security) generator functions as well as a variant/version detector
+and generation settings utility.
+
+The purpose of this library is partly to actually generate UUIDs, but mostly to
+demonstrate a basic principle of state maintenance in terms of process life and
+messaging, as well as provide a small, but not toy, codebase to demonstrate different
+aspects of both Erlang coding, style, and documentation practices. (Though there were
+not any UUID implementations quite as complete as this one, there was certainly no lack
+of capable UUID implementations in Erlang.)
+
+== General Operation ==
+The utility functions in the zuuid module can operate over any 128-bit values and treat
+them as UUIDs, but the generation and detection functions currently only fully support
+RFC 4122 and DCE Security (version 2) UUIDs. (There does not seem to be a major
+scramble to support legacy Microsoft GUID generation anywhere.)
+
+=Example Shell Session=
+UUIDs are held in an internal binary representation, not canonical form. This assists
+greatly with manipulating them on their own terms, and also defers the decision about
+whether the display serialization form should be a binary string or a text string
+until the user is actually doing one of those tasks.
+
+Here is some sample manipulation in the shell:
+
+```
+1> zuuid:start().
+ok
+2> {ok, MAC} = zuuid:get_hw_addr("eth0").
+{ok,<<184,107,35,128,22,24>>}
+3> zuuid:config({node, MAC}).
+ok
+4> UUID = zuuid:v1().
+{uuid,<<156,80,133,236,201,174,17,229,154,56,184,107,35,128,22,24>>}
+5> zuuid:version(UUID).
+{rfc4122,1}
+6> zuuid:string(UUID).
+"{9C5085EC-C9AE-11E5-9A38-B86B23801618}"
+7> zuuid:binary(zuuid:v4()).
+<<"{A2AF6D62-0D40-446E-BF89-108082A4E809}">>
+8> U2 = zuuid:read_uuid("12345678-90ab-cdef-1234-567890abcdef").
+{uuid,<<18,52,86,120,144,171,205,239,18,52,86,120,144,171,205,239>>}
+9> zuuid:version(U2).
+{ncs,compatibility}
+10> zuuid:string(U2).
+"{12345678-90AB-CDEF-1234-567890ABCDEF}"
+11> NewMAC = zuuid:read_mac("12:34:56:78:90:ab").
+<<18,52,86,120,144,171>>
+12> zuuid:config({node, NewMAC}).
+ok
+13> zuuid:string(zuuid:v1()).
+"{86BAD2C8-C9AF-11E5-9A38-1234567890AB}"
+'''
+
+== State-based Generation ==
+UUID versions 1 and 2 are based on a combination of identity attributes, clock-sequence
+values and clock time values at 100 nanosecond resolution. Some computers today (and
+certainly many in the future) can generate UUIDs at such speed that duplicates may
+be generated, and of course the identity values must persist during a session of they
+are to be worked into the output values without being retrieved from the host system
+each time a UUID is generated.
+
+For this reason it is necessary to start the zuuid application by calling
+`zuuid:start/0' before calling `zuuid:v1/0', `zuuid:v2/0,2', or `zuuid:config/1'.
+Starting the application spawns a supervisor and a single worker, registered with the
+name 'zuuid_man' to manage generator identity state and intercept and adjust duplicate
+values in the event any are generated.
+
+`zuuid:config/1' permits any arbitrary identity attribute values to be set on the
+state manager itself. When the state manager starts up it will initialize itself with
+random values from the host system's entropy pool (if it has one) by calling
+<a href="http://zxq9.com/erlang/docs/reg/18.0/lib/crypto-3.6/doc/html/crypto.html#strong_rand_bytes-1">crypto:strong_rand_bytes/1</a>
+and so will be different each time the application is
+started. If the actual hardware address of the running system or Posix IDs relevant to
+version 2 UUIDs are needed they will need to be set after starting the application.
+
+== Input-dependent Generation ==
+UUIDs version 3 and 5 are based on MD5 and SHA-1 hash values over two input values,
+respectively. One input value is either an
+<a href="https://en.wikipedia.org/wiki/Object_identifier">"OID"</a>
+value or an arbitrary string or
+binary, and the other is the target you actually want to hash. These are entirely
+deterministic functions, and as such are pure.
+
+Version 4 UUIDs are completely random, and in this particular implementation are fully
+random if the host system has an entropy pool accessible by calling
+`crypto:strong_rand_bytes/1' (and subsequently UUID version 4 values are dependent on
+this entropy pool).
+
+== As a Learning Exercise ==
+The primary goal of this codebase is to be readable in every way. The coding style,
+commenting style, document output, variable name selection, and exported function
+selection is tailored to (hopefully) be as obvious as any OTP application can be for
+a newcomer. I welcome feedback concerning this aspect of the code and the documentation.
+
+If this application winds up actually being used other than as an intermediate learning
+reference I would be happy to include erlang.mk, rebar3, etc. files -- at the moment,
+though, it doesn't seem necessary, as UUIDs are a pretty common subject of one-off
+libraries on GitHub.
