@@ -30,7 +30,7 @@
 %%% State record
 -record(s, {clock_seq = zuuid:random_clock() :: zuuid:clock_seq(),
             clock_adj = 1                    :: non_neg_integer(),
-            node      = zuuid:random_mac()   :: zuuid:random802mac(),
+            node      = zuuid:random_mac()   :: zuuid:ieee802mac(),
             posix_id  = zuuid:random_uid()   :: zuuid:posix_id(),
             local_id  = zuuid:random_lid()   :: zuuid:local_id(),
             last_v1   = zuuid:nil()          :: zuuid:uuid(),
@@ -122,7 +122,10 @@ code_change(_, State, _) ->
 %%% UUID generation
 
 %% V1
--spec v1(#s{}) -> zuuid:uuid().
+-spec v1(State) -> {UUID, NewState}
+    when State    :: #s{},
+         UUID     :: zuuid:uuid(),
+         NewState :: #s{}.
 v1(State = #s{clock_seq = Seq, clock_adj = Adj, node = Node, last_v1 = Last}) ->
     case gen_v1(Seq, Node) of
         Last = {uuid, <<Pref:66, _:62>>} ->
@@ -142,7 +145,12 @@ gen_v1(ClockSeq, Node) ->
 
 
 %% V2
--spec v2(#s{}, zuuid:posix_id(), zuuid:local_id()) -> zuuid:uuid().
+-spec v2(PosixID, LocalID, State) -> {UUID, NewState}
+    when PosixID  :: zuuid:posix_id(),
+         LocalID  :: zuuid:local_id(),
+         State    :: #s{},
+         UUID     :: zuuid:uuid(),
+         NewState :: #s{}.
 v2(PosixID,
    LocalID,
    State = #s{clock_seq = Seq, clock_adj = Adj, node = Node, last_v2 = Last}) ->

@@ -17,9 +17,9 @@
 -export([start/2, stop/1]).
 -export([v1/0,
          v2/0, v2/2,
-         v3/1, v3/2,
+         v3/1, v3/2, v3rand/1,
          v4/0,
-         v5/1, v5/2,
+         v5/1, v5/2, v5rand/1,
          nil/0,
          read_uuid/1, read_mac/1, version/1, string/1, binary/1,
          get_hw_addr/0, get_hw_addr/1,
@@ -48,7 +48,7 @@
                     | 97..102.            %               'a' - 'f'
 -type strhex()     :: [hexchar()].
 -type binhex()     :: binary().           % Should mimic strhex().
--type namespace()  :: <<_:128>>.
+-type namespace()  :: nil | url | dns | oid | x500.
 
 
 %%% Constants
@@ -209,10 +209,12 @@ v3(oid, Name) ->
     v3_hash(?OID_NS, Name);
 v3(x500, Name) ->
     v3_hash(?X500_NS, Name);
-v3(rand, Name) ->
-    v3_hash(crypto:strong_rand_bytes(16), Name);
 v3(Data, Name) ->
     v3_hash(Data, Name).
+
+-spec v3rand(iodata()) -> uuid().
+v3rand(Name) ->
+    v3_hash(crypto:strong_rand_bytes(16), Name).
 
 -spec v3_hash(iodata(), iodata()) -> uuid().
 v3_hash(Z, X) ->
@@ -263,10 +265,12 @@ v5(oid, Name) ->
     v5_hash(?OID_NS, Name);
 v5(x500, Name) ->
     v5_hash(?X500_NS, Name);
-v5(rand, Name) ->
-    v5_hash(crypto:strong_rand_bytes(16), Name);
 v5(Data, Name) ->
     v5_hash(Data, Name).
+
+-spec v5rand(iodata()) -> uuid().
+v5rand(Name) ->
+    v5_hash(crypto:strong_rand_bytes(16), Name).
 
 -spec v5_hash(iodata(), iodata()) -> uuid().
 v5_hash(Z, X) ->
@@ -509,7 +513,7 @@ binary(UUID) ->
 %% names are a function of the operating system there is no way to
 %% guarantee that this function is deterministic. If you require a specific
 %% address be used for generation of version 1 or 2 UUIDs it is safer to
-%% present a known address in your own callin code.
+%% present a known address in your own calling code.
 %%
 %% Example:
 %% ```
@@ -666,7 +670,10 @@ binhexs_to_uuid(List) ->
 binhexs_to_integers(List) ->
     [binary_to_integer(X, 16) || X <- List].
 
--spec bins_to_strhexs([binary()]) -> [strhex()].
+-spec bins_to_strhexs([{Bin, Size}]) -> StrHexs
+    when Bin     :: binary(),
+         Size    :: 4 | 8 | 12,
+         StrHexs :: [strhex()].
 bins_to_strhexs(List) ->
     [binary_to_strhex(X) || X <- List].
 
