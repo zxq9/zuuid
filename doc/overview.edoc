@@ -22,7 +22,7 @@ them as UUIDs, but the generation and detection functions currently only fully s
 RFC 4122 and DCE Security (version 2) UUIDs. (There does not seem to be a major
 scramble to support legacy Microsoft GUID generation anywhere.)
 
-=Example Shell Session=
+==Example Shell Session==
 UUIDs are held in an internal binary representation, not canonical form. This assists
 greatly with manipulating them on their own terms, and also defers the decision about
 whether the display serialization form should be a binary string or a text string
