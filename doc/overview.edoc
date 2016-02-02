@@ -1,4 +1,4 @@
-@author Craig Everett <ceverett@zxq9.com> [http://zxq9.com/projects/zuuid/]
+@author Craig Everett <ceverett@zxq9.com> [https://github.com/zxq9/zuuid]
 @copyright 2016 Craig Everett
 @version 1.0.0
 @title Welcome to zUUID!
@@ -7,7 +7,7 @@
 zUUID is a simple and complete implementation of
 <a href="http://tools.ietf.org/html/rfc4122">RFC 4122</a> UUID version 1, 3, 4 and 5 and
 UUID version 2 (DCE Security) generator functions as well as a variant/version detector
-and generation settings utility.
+and generation data settings utility.
 
 The purpose of this library is partly to actually generate UUIDs, but mostly to
 demonstrate a basic principle of state maintenance in terms of process life and

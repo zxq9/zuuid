@@ -27,7 +27,8 @@
 
 
 %%% Side-effect free
--pure([read_uuid/1, read_mac/1, string/1, binary/1,
+-pure([v3/1, v3/2, v3_hash/2, v5/1, v5/2, v5_hash/2,
+       read_uuid/1, read_mac/1, string/1, binary/1,
        strhexs_to_uuid/1, strhexs_to_integers/1,
        binhexs_to_uuid/1, binhexs_to_integers/1,
        bins_to_strhexs/1, binary_to_strhex/1,
