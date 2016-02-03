@@ -427,11 +427,11 @@ read_mac_string(MAC) ->
 %%
 %% (Noncompliant values can be used by the rest of this module, though).
 %%
-%% Accepts the atom 'bad_uuid', so composition with read_uuid/1 will return
-%% sane values on bad external input.
+%% Returns the atom 'bad_uuid' on non-UUID values, so composition with
+%% read_uuid/1 will return sane values on bad external input.
 -spec version(UUID) -> VarVer
     when UUID    :: uuid()
-                  | bad_uuid,
+                  | term(),
          VarVer  :: {Variant, Version}
                   | bad_uuid,
          Variant :: rfc4122
@@ -445,8 +445,8 @@ read_mac_string(MAC) ->
                   | nonstandard.
 version({uuid, <<_:64, 0:1, _:63>>}) ->
     {ncs, compatibility};
-% V is matched on bits, so it can never be a negative value.
-version({uuid, <<_:48, V:4, _:12, 2:2, _:62>>}) when V < 6 ->
+version({uuid, <<_:48, V:4, _:12, 2:2, _:62>>})
+        when 0 < V andalso V < 6 ->
     {rfc4122, V};
 version({uuid, <<_:64, 6:3, _:61>>}) ->
     {microsoft, compatibility};
@@ -456,7 +456,7 @@ version({uuid, <<0:128>>}) ->
     {rfc4122, nil};
 version({uuid, <<_:128>>}) ->
     {other, nonstandard};
-version(bad_uuid) ->
+version(_) ->
     bad_uuid.
 
 %% @doc
