@@ -31,10 +31,8 @@
 -pure([v3/1, v3/2, v3_hash/2, v5/1, v5/2, v5_hash/2,
        read_uuid/1, read_uuid_string/1, read_mac/1, read_mac_string/1,
        string/1, binary/1,
-       strhexs_to_uuid/1, strhexs_to_integers/1,
-       binhexs_to_uuid/1, binhexs_to_integers/1,
-       bins_to_strhexs/1, binary_to_strhex/1,
-       strhexs_to_mac/1, binhexs_to_mac/1]).
+       strhexs_to_uuid/1, strhexs_to_mac/1,
+       strhexs_to_integers/1, bins_to_strhexs/1, binary_to_strhex/1]).
 
 
 %%% Types
@@ -641,6 +639,13 @@ strhexs_to_uuid(List) ->
     end,
     {uuid, Bin}.
 
+-spec strhexs_to_mac([strhex()]) -> ieee802mac().
+strhexs_to_mac(List) ->
+    case strhexs_to_integers(List) of
+        [A, B, C, D, E, F] -> <<A:8, B:8, C:8, D:8, E:8, F:8>>;
+        [Value]            -> <<Value:48>>
+    end.
+
 -spec strhexs_to_integers([strhex()]) -> [integer()].
 strhexs_to_integers(List) ->
     [list_to_integer(X, 16) || X <- List].
@@ -658,10 +663,3 @@ bins_to_strhexs(List) ->
          StrHex :: strhex().
 binary_to_strhex({Bin, Size}) ->
     string:right(integer_to_list(binary:decode_unsigned(Bin, big), 16), Size, $0).
-
--spec strhexs_to_mac([strhex()]) -> ieee802mac().
-strhexs_to_mac(List) ->
-    case strhexs_to_integers(List) of
-        [A, B, C, D, E, F] -> <<A:8, B:8, C:8, D:8, E:8, F:8>>;
-        [Value]            -> <<Value:48>>
-    end.
