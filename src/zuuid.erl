@@ -22,7 +22,9 @@
          v4/0,
          v5/1, v5/2, v5rand/1,
          nil/0,
-         read_uuid/1, read_mac/1, version/1, string/1, binary/1,
+         read_uuid/1, read_mac/1, version/1,
+         string/1, string/2,
+         binary/1, binary/2,
          get_hw_addr/0, get_hw_addr/1,
          random_mac/0, random_clock/0, random_uid/0, random_lid/0]).
 
@@ -30,7 +32,8 @@
 %%% Side-effect free
 -pure([v3/1, v3/2, v3_hash/2, v5/1, v5/2, v5_hash/2,
        read_uuid/1, read_uuid_string/1, read_mac/1, read_mac_string/1,
-       string/1, binary/1,
+       string/1, string/2,
+       binary/1, binary/2,
        strhexs_to_uuid/1, strhexs_to_mac/1,
        strhexs_to_integers/1, bins_to_strhexs/1, binary_to_strhex/1]).
 
@@ -459,19 +462,40 @@ version({uuid, <<_:128>>}) ->
 version(_) ->
     bad_uuid.
 
+%% @equiv zuuid:string(UUID, brackets)
+-spec string(uuid()) -> string().
+string(UUID) ->
+    string(UUID, brackets).
+
 %% @doc
-%% Accept an internal UUID representation, and return a canonical string
+%% Accept an internal UUID representation and return a canonical string
 %% representation in brackets.
 %%
 %% For example:
 %% ```
 %% 1> zuuid:string(zuuid:read_uuid(<<"6ba7b8109dad11d180b400c04fd430c8">>)).
 %% "{6BA7B810-9DAD-11D1-80B4-00C04FD430C8}"
+%% 2> zuuid:string(zuuid:read_uuid(<<"6ba7b8109dad11d180b400c04fd430c8">>), standard).
+%% "6BA7B810-9DAD-11D1-80B4-00C04FD430C8"
+%% 3> zuuid:string(zuuid:read_uuid(<<"6ba7b8109dad11d180b400c04fd430c8">>), brackets).
+%% "{6BA7B810-9DAD-11D1-80B4-00C04FD430C8}"
 %% '''
--spec string(uuid()) -> string().
-string({uuid, <<A:4/binary, B:2/binary, C:2/binary, D:2/binary, E:6/binary>>}) ->
+-spec string(UUID, Format) -> Serialized
+    when UUID       :: uuid(),
+         Format     :: brackets
+                     | standard,
+         Serialized :: string().
+string({uuid, <<A:4/binary, B:2/binary, C:2/binary, D:2/binary, E:6/binary>>}, brackets) ->
     Parts = [{A, 8}, {B, 4}, {C, 4}, {D, 4}, {E, 12}],
-    "{" ++ string:join(bins_to_strhexs(Parts), "-") ++ "}".
+    "{" ++ string:join(bins_to_strhexs(Parts), "-") ++ "}";
+string({uuid, <<A:4/binary, B:2/binary, C:2/binary, D:2/binary, E:6/binary>>}, standard) ->
+    Parts = [{A, 8}, {B, 4}, {C, 4}, {D, 4}, {E, 12}],
+    string:join(bins_to_strhexs(Parts), "-").
+
+%% @equiv zuuid:binary(UUID, brackets)
+-spec binary(uuid()) -> binary().
+binary(UUID) ->
+    binary(UUID, brackets).
 
 %% @doc
 %% Accept an internal UUID representation, and return a canonical binary
@@ -479,12 +503,20 @@ string({uuid, <<A:4/binary, B:2/binary, C:2/binary, D:2/binary, E:6/binary>>}) -
 %%
 %% For example:
 %% ```
-%% 1> zuuid:binary(zuuid:read_uuid("6ba7b8109dad11d180b400c04fd430c8")).     
+%% 1> zuuid:binary(zuuid:read_uuid("6ba7b8109dad11d180b400c04fd430c8")).
+%% <<"{6BA7B810-9DAD-11D1-80B4-00C04FD430C8}">>
+%% 2> zuuid:binary(zuuid:read_uuid("6ba7b8109dad11d180b400c04fd430c8"), standard).
+%% <<"6BA7B810-9DAD-11D1-80B4-00C04FD430C8">>
+%% 3> zuuid:binary(zuuid:read_uuid("6ba7b8109dad11d180b400c04fd430c8"), brackets).
 %% <<"{6BA7B810-9DAD-11D1-80B4-00C04FD430C8}">>
 %% '''
--spec binary(uuid()) -> binary().
-binary(UUID) ->
-    list_to_binary(string(UUID)).
+-spec binary(UUID, Format) -> Serialized
+    when UUID       :: uuid(),
+         Format     :: brackets
+                     | standard,
+         Serialized :: binary().
+binary(UUID, Format) ->
+    list_to_binary(string(UUID, Format)).
 
 
 %%% ID utilities
