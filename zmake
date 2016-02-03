@@ -5,4 +5,6 @@
 main(_) ->
     true = code:add_patha("ebin"),
     Modules = make:all(),
-    io:format("~p~n", [Modules]).
+    ok = io:format("~p~n", [Modules]),
+    ok = io:format("Writing docs...~n"),
+    ok = edoc:application(zuuid, ".", []).

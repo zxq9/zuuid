@@ -213,6 +213,7 @@ v3(x500, Name) ->
 v3(Data, Name) ->
     v3_hash(Data, Name).
 
+%% @equiv zuuid:v3(crypto:strong_rand_bytes(16), Name)
 -spec v3rand(iodata()) -> uuid().
 v3rand(Name) ->
     v3_hash(crypto:strong_rand_bytes(16), Name).
@@ -269,6 +270,7 @@ v5(x500, Name) ->
 v5(Data, Name) ->
     v5_hash(Data, Name).
 
+%% @equiv zuuid:v5(crypto:strong_rand_bytes(16), Name)
 -spec v5rand(iodata()) -> uuid().
 v5rand(Name) ->
     v5_hash(crypto:strong_rand_bytes(16), Name).
