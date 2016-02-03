@@ -445,8 +445,8 @@ read_mac_string(MAC) ->
                   | nonstandard.
 version({uuid, <<_:64, 0:1, _:63>>}) ->
     {ncs, compatibility};
-version({uuid, <<_:48, V:4, _:12, 2:2, _:62>>})
-        when V > 0 andalso V < 6 ->
+% V is matched on bits, so it can never be a negative value.
+version({uuid, <<_:48, V:4, _:12, 2:2, _:62>>}) when V < 6 ->
     {rfc4122, V};
 version({uuid, <<_:64, 6:3, _:61>>}) ->
     {microsoft, compatibility};
