@@ -29,7 +29,8 @@
 
 %%% Side-effect free
 -pure([v3/1, v3/2, v3_hash/2, v5/1, v5/2, v5_hash/2,
-       read_uuid/1, read_mac/1, string/1, binary/1,
+       read_uuid/1, read_uuid_string/1, read_mac/1, read_mac_string/1,
+       string/1, binary/1,
        strhexs_to_uuid/1, strhexs_to_integers/1,
        binhexs_to_uuid/1, binhexs_to_integers/1,
        bins_to_strhexs/1, binary_to_strhex/1,
@@ -321,6 +322,7 @@ read_uuid(UUID = {uuid, <<_:128>>}) ->
 read_uuid(_) ->
     bad_uuid.
 
+-spec read_uuid_string(list()) -> uuid() | bad_uuid.
 read_uuid_string(UUID) ->
     Parts = string:tokens(UUID, "{-}"),
     case lists:map(fun length/1, Parts) of
@@ -391,6 +393,7 @@ read_mac(MAC) when is_list(MAC) ->
 read_mac(_) ->
     bad_mac.
 
+-spec read_mac_string(list()) -> ieee802mac() | bad_mac.
 read_mac_string(MAC) ->
     Parts = case string:tokens(string:to_upper(MAC), ":-.") of
         [A,B,C,"FF","FE",D,E,F]                 -> [A,B,C,D,E,F];
