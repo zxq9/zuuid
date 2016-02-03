@@ -427,7 +427,8 @@ read_mac_string(MAC) ->
 %% Accepts the atom 'bad_uuid', so composition with read_uuid/1 will return
 %% sane values on bad external input.
 -spec version(UUID) -> VarVer
-    when UUID    :: uuid(),
+    when UUID    :: uuid()
+                  | bad_uuid,
          VarVer  :: {Variant, Version}
                   | bad_uuid,
          Variant :: rfc4122
@@ -450,10 +451,10 @@ version({uuid, <<_:64, 7:3, _:61>>}) ->
     {reserved, nonstandard};
 version({uuid, <<0:128>>}) ->
     {rfc4122, nil};
+version({uuid, <<_:128>>}) ->
+    {other, nonstandard};
 version(bad_uuid) ->
-    bad_uuid;
-version(_) ->
-    {other, nonstandard}.
+    bad_uuid.
 
 %% @doc
 %% Accept an internal UUID representation, and return a canonical string
