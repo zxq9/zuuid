@@ -12,6 +12,7 @@
 %%% @end
 
 -module(zuuid).
+-author("Craig Everett <zxq9@zxq9.com>").
 -behavior(application).
 -export([start/0, config/1, stop/0]).
 -export([start/2, stop/1]).
@@ -47,7 +48,6 @@
                     | 65..70              %               'A' - 'F'
                     | 97..102.            %               'a' - 'f'
 -type strhex()     :: [hexchar()].
--type binhex()     :: binary().           % Should mimic strhex().
 -type namespace()  :: nil | url | dns | oid | x500.
 
 
@@ -310,27 +310,24 @@ nil() ->
                  | binary(),
          Result :: uuid()
                  | bad_uuid.
-read_uuid(UUID = {uuid, <<_:128>>}) ->
-    UUID;
-read_uuid(<<"{", A:8/binary, "-", B:4/binary, "-", C:4/binary, "-", D:4/binary, "-", E:12/binary, "}">>) ->
-    binhexs_to_uuid([A, B, C, D, E]);
-read_uuid(<<A:8/binary, "-", B:4/binary, "-", C:4/binary, "-", D:4/binary, "-", E:12/binary>>) ->
-    binhexs_to_uuid([A, B, C, D, E]);
-read_uuid(<<"{", A:8/binary, B:4/binary, C:4/binary, D:4/binary, E:12/binary, "}">>) ->
-    binhexs_to_uuid([A, B, C, D, E]);
-read_uuid(<<A:8/binary, B:4/binary, C:4/binary, D:4/binary, E:12/binary>>) ->
-    binhexs_to_uuid([A, B, C, D, E]);
 read_uuid(UUID = <<_:128>>) ->
     {uuid, UUID};
+read_uuid(UUID) when is_binary(UUID) ->
+    read_uuid_string(binary_to_list(UUID));
 read_uuid(UUID) when is_list(UUID) ->
+    read_uuid_string(UUID);
+read_uuid(UUID = {uuid, <<_:128>>}) ->
+    UUID;
+read_uuid(_) ->
+    bad_uuid.
+
+read_uuid_string(UUID) ->
     Parts = string:tokens(UUID, "{-}"),
     case lists:map(fun length/1, Parts) of
         [8, 4, 4, 4, 12] -> strhexs_to_uuid(Parts);
         [32]             -> strhexs_to_uuid(Parts);
         _                -> bad_uuid
-    end;
-read_uuid(_) ->
-    bad_uuid.
+    end.
 
 %% @doc
 %% Takes a serialized representation of an IEEE 802 MAC address in a variety of
@@ -369,38 +366,20 @@ read_uuid(_) ->
 %% '''
 %% Returns: `<<18,52,86,120,144,171>>'
 %%
-%% Hexadecimal "letter" values are not case sensitive,
-%% but mixed-case in MAC-48/EUI-48 -> EUI-64 converted 64-bit
-%% addresses are not guaranteed to be detected properly.
+%% Hexadecimal "letter" values are not case sensitive.
 -spec read_mac(Input) -> Result
     when Input  :: string()
                  | binary(),
          Result :: ieee802mac()
                  | bad_mac.
-read_mac(<<A:2/binary, ":", B:2/binary, ":", C:2/binary, ":",
-           D:2/binary, ":", E:2/binary, ":", F:2/binary>>) ->
-    binhexs_to_mac([A, B, C, D, E, F]);
-read_mac(<<A:2/binary, "-", B:2/binary, "-", C:2/binary, "-",
-           D:2/binary, "-", E:2/binary, "-", F:2/binary>>) ->
-    binhexs_to_mac([A, B, C, D, E, F]);
-read_mac(<<A:2/binary, ".", B:2/binary, ".", C:2/binary, ".",
-           D:2/binary, ".", E:2/binary, ".", F:2/binary>>) ->
-    binhexs_to_mac([A, B, C, D, E, F]);
-read_mac(<<A:2/binary, B:2/binary, C:2/binary,
-           D:2/binary, E:2/binary, F:2/binary>>) ->
-    binhexs_to_mac([A, B, C, D, E, F]);
-read_mac(<<A:2/binary, "-", B:2/binary, "-", C:2/binary, "-FF-FE-",
-           D:2/binary, "-", E:2/binary, "-", F:2/binary>>) ->
-    binhexs_to_mac([A, B, C, D, E, F]);
-read_mac(<<A:2/binary, "-", B:2/binary, "-", C:2/binary, "-", D:2/binary, "-",
-           E:2/binary, "-", F:2/binary, "-", _:2/binary, "-", _:2/binary>>) ->
-    binhexs_to_mac([A, B, C, D, E, F]);
-read_mac(<<A:2/binary, B:2/binary, C:2/binary, "FFFE",
-           D:2/binary, E:2/binary, F:2/binary>>) ->
-    binhexs_to_mac([A, B, C, D, E, F]);
-read_mac(<<A:2/binary, B:2/binary, C:2/binary,
-           D:2/binary, E:2/binary, F:2/binary, _:2/binary>>) ->
-    binhexs_to_mac([A, B, C, D, E, F]);
+read_mac(MAC = <<_:12/binary>>) ->
+    read_mac_string(binary_to_list(MAC));
+read_mac(MAC = <<_:16/binary>>) ->
+    read_mac_string(binary_to_list(MAC));
+read_mac(MAC = <<_:17/binary>>) ->
+    read_mac_string(binary_to_list(MAC));
+read_mac(MAC = <<_:23/binary>>) ->
+    read_mac_string(binary_to_list(MAC));
 read_mac(MAC = <<_:48>>) ->
     MAC;
 read_mac(<<A:24, 255, 254, B:24>>) ->
@@ -408,12 +387,14 @@ read_mac(<<A:24, 255, 254, B:24>>) ->
 read_mac(<<MAC:48, _:16>>) ->
     <<MAC:48>>;
 read_mac(MAC) when is_list(MAC) ->
-    % By far the silliest thing in the whole application.
-    Parts = case string:tokens(MAC, ":-.") of
+    read_mac_string(MAC);
+read_mac(_) ->
+    bad_mac.
+
+read_mac_string(MAC) ->
+    Parts = case string:tokens(string:to_upper(MAC), ":-.") of
         [A,B,C,"FF","FE",D,E,F]                 -> [A,B,C,D,E,F];
-        [A,B,C,"ff","fe",D,E,F]                 -> [A,B,C,D,E,F];
         [[A,B,C,D,E,F,$F,$F,$F,$E,G,H,I,J,K,L]] -> [[A,B,C,D,E,F,G,H,I,J,K,L]];
-        [[A,B,C,D,E,F,$f,$f,$f,$e,G,H,I,J,K,L]] -> [[A,B,C,D,E,F,G,H,I,J,K,L]];
         Tokens                                  -> Tokens
     end,
     case lists:map(fun length/1, Parts) of
@@ -428,9 +409,7 @@ read_mac(MAC) when is_list(MAC) ->
             strhexs_to_mac([lists:sublist(String, 12)]);
         _ ->
             bad_mac
-    end;
-read_mac(_) ->
-    bad_mac.
+    end.
 
 %% @doc
 %% Determine the variant and version of a UUID.
@@ -661,15 +640,6 @@ strhexs_to_uuid(List) ->
 strhexs_to_integers(List) ->
     [list_to_integer(X, 16) || X <- List].
 
--spec binhexs_to_uuid([binhex()]) -> uuid().
-binhexs_to_uuid(List) ->
-    [A, B, C, D, E] = binhexs_to_integers(List),
-    {uuid, <<A:32, B:16, C:16, D:16, E:48>>}.
-
--spec binhexs_to_integers([binhex()]) -> [integer()].
-binhexs_to_integers(List) ->
-    [binary_to_integer(X, 16) || X <- List].
-
 -spec bins_to_strhexs([{Bin, Size}]) -> StrHexs
     when Bin     :: binary(),
          Size    :: 4 | 8 | 12,
@@ -690,8 +660,3 @@ strhexs_to_mac(List) ->
         [A, B, C, D, E, F] -> <<A:8, B:8, C:8, D:8, E:8, F:8>>;
         [Value]            -> <<Value:48>>
     end.
-
--spec binhexs_to_mac([binhex()]) -> ieee802mac().
-binhexs_to_mac(List) ->
-    [A, B, C, D, E, F] = binhexs_to_integers(List),
-    <<A:8, B:8, C:8, D:8, E:8, F:8>>.

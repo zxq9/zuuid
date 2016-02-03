@@ -17,6 +17,7 @@
 %%% @end
 
 -module(zuuid_sup).
+-author("Craig Everett <zxq9@zxq9.com>").
 -behavior(supervisor).
 -export([start_link/1]).
 -export([init/1]).

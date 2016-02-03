@@ -1,7 +1,7 @@
 {application,
  zuuid,
  [{description, "UUID generator and utilities."},
-  {vsn, "0.1.0"},
+  {vsn, "1.0.1"},
   {applications, [stdlib, kernel]},
   {modules, [zuuid,
              zuuid_sup,

@@ -21,6 +21,7 @@
 %%% @end
 
 -module(zuuid_man).
+-author("Craig Everett <zxq9@zxq9.com>").
 -behavior(gen_server).
 -export([start_link/0, check_offset/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
