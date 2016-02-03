@@ -268,6 +268,9 @@ v5(x500, Name) ->
 v5(Data, Name) ->
     v5_hash(Data, Name).
 
+%% @doc
+%% Generate an RFC 4122 version 5 UUID (truncated sha1 hash) with a random
+%% namespace.
 %% @equiv zuuid:v5(crypto:strong_rand_bytes(16), Name)
 -spec v5rand(iodata()) -> uuid().
 v5rand(Name) ->
