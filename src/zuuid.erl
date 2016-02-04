@@ -332,7 +332,6 @@ read_uuid(_) ->
 read_uuid_string(UUID) ->
     Parts = string:tokens(UUID, "{-}"),
     case [length(Part) || Part <- Parts] of
-%   case lists:map(fun length/1, Parts) of
         [8, 4, 4, 4, 12] -> strhexs_to_uuid(Parts);
         [32]             -> strhexs_to_uuid(Parts);
         _                -> bad_uuid
@@ -408,7 +407,6 @@ read_mac_string(MAC) ->
         Tokens                                  -> Tokens
     end,
     case [length(Part) || Part <- Parts] of
-%   case lists:map(fun length/1, Parts) of
         [2, 2, 2, 2, 2, 2] ->
             strhexs_to_mac(Parts);
         [2, 2, 2, 2, 2, 2, 2, 2] ->
