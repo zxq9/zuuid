@@ -38,6 +38,10 @@
             last_v2   = zuuid:nil()          :: zuuid:uuid()}).
 
 
+%%% Types
+-type state() :: #s{}.
+
+
 %%% Constants
 
 % From RFC 4122:
@@ -77,7 +81,7 @@ start_link(Args) ->
 %% generation of version 1 and 2 UUIDs. Users are advised to configure
 %% the uuid state manager after startup to customize the state if desired.
 %% @see zuuid:config/1.
--spec init(term()) -> {ok, term()}.
+-spec init(term()) -> {ok, state()}.
 init(_) ->
     {ok, #s{}}.
 
@@ -124,9 +128,9 @@ code_change(_, State, _) ->
 
 %% V1
 -spec v1(State) -> {UUID, NewState}
-    when State    :: #s{},
+    when State    :: state(),
          UUID     :: zuuid:uuid(),
-         NewState :: #s{}.
+         NewState :: state().
 v1(State = #s{clock_seq = Seq, clock_adj = Adj, node = Node, last_v1 = Last}) ->
     case gen_v1(Seq, Node) of
         Last = {uuid, <<Pref:66, _:62>>} ->
@@ -149,9 +153,9 @@ gen_v1(ClockSeq, Node) ->
 -spec v2(PosixID, LocalID, State) -> {UUID, NewState}
     when PosixID  :: zuuid:posix_id(),
          LocalID  :: zuuid:local_id(),
-         State    :: #s{},
+         State    :: state(),
          UUID     :: zuuid:uuid(),
-         NewState :: #s{}.
+         NewState :: state().
 v2(PosixID,
    LocalID,
    State = #s{clock_seq = Seq, clock_adj = Adj, node = Node, last_v2 = Last}) ->
@@ -188,8 +192,8 @@ gen_v2(PosixID, LocalID, ClockSeq, Node) ->
                    | {node,      random | zuuid:ieee802mac()}
                    | {posix_id,  random | zuuid:posix_id()}
                    | {local_id,  random | zuuid:local_id()},
-         State    :: #s{},
-         NewState :: #s{}.
+         State    :: state(),
+         NewState :: state().
 config({Attribute, random}, State) ->
     case Attribute of
         clock_seq -> State#s{clock_seq = zuuid:random_clock()};

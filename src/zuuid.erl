@@ -328,10 +328,11 @@ read_uuid(UUID = {uuid, <<_:128>>}) ->
 read_uuid(_) ->
     bad_uuid.
 
--spec read_uuid_string(list()) -> uuid() | bad_uuid.
+-spec read_uuid_string(string()) -> uuid() | bad_uuid.
 read_uuid_string(UUID) ->
     Parts = string:tokens(UUID, "{-}"),
-    case lists:map(fun length/1, Parts) of
+    case [length(Part) || Part <- Parts] of
+%   case lists:map(fun length/1, Parts) of
         [8, 4, 4, 4, 12] -> strhexs_to_uuid(Parts);
         [32]             -> strhexs_to_uuid(Parts);
         _                -> bad_uuid
@@ -399,14 +400,15 @@ read_mac(MAC) when is_list(MAC) ->
 read_mac(_) ->
     bad_mac.
 
--spec read_mac_string(list()) -> ieee802mac() | bad_mac.
+-spec read_mac_string(string()) -> ieee802mac() | bad_mac.
 read_mac_string(MAC) ->
     Parts = case string:tokens(string:to_upper(MAC), ":-.") of
         [A,B,C,"FF","FE",D,E,F]                 -> [A,B,C,D,E,F];
         [[A,B,C,D,E,F,$F,$F,$F,$E,G,H,I,J,K,L]] -> [[A,B,C,D,E,F,G,H,I,J,K,L]];
         Tokens                                  -> Tokens
     end,
-    case lists:map(fun length/1, Parts) of
+    case [length(Part) || Part <- Parts] of
+%   case lists:map(fun length/1, Parts) of
         [2, 2, 2, 2, 2, 2] ->
             strhexs_to_mac(Parts);
         [2, 2, 2, 2, 2, 2, 2, 2] ->
