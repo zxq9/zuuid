@@ -551,9 +551,8 @@ string({uuid, <<A:4/binary, B:2/binary, C:2/binary, D:2/binary, E:6/binary>>}, b
 string({uuid, <<A:4/binary, B:2/binary, C:2/binary, D:2/binary, E:6/binary>>}, standard) ->
     Parts = [{A, 8}, {B, 4}, {C, 4}, {D, 4}, {E, 12}],
     string:join(bins_to_strhexs(Parts), "-");
-string({uuid, <<A:4/binary, B:2/binary, C:2/binary, D:2/binary, E:6/binary>>}, no_break) ->
-    Parts = [{A, 8}, {B, 4}, {C, 4}, {D, 4}, {E, 12}],
-    lists:concat(bins_to_strhexs(Parts));
+string({uuid, Bin}, no_break) ->
+    string:right(integer_to_list(binary:decode_unsigned(Bin), 16), 32, $0);
 string({uuid, Binary}, raw_bits) ->
     string:right(integer_to_list(binary:decode_unsigned(Binary), 2), 128, $0).
 
