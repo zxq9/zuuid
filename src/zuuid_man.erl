@@ -3,8 +3,8 @@
 %%%
 %%% This process manages the state of time-based generation data for UUID
 %%% versions 1 and 2 and implements measures to prevent generation of
-%%% duplicate UUIDs in the case of very high frequency calls to zuuid:v1()
-%%% or zuuid:v2
+%%% duplicate UUIDs in the case of very high frequency calls to {@link zuuid:v1/0},
+%%% {@link zuuid:v2/0} or {@link zuuid:v2/1}.
 %%%
 %%% Starting the zUUID application with zuuid:start/0 is not necessary if only
 %%% using version 3, 4 or 5 UUIDs, or for using the UUID manipulation functions
@@ -15,9 +15,7 @@
 %%% If custom values are desired for any of these state attributes (such as
 %%% the actual primary MAC address used by the machine, actual posix UID, or
 %%% some other deliberate identifying data) they can be set after this
-%%% process has started by using zuuid:config/1.
-%%%
-%%% @see zuuid:config/1.
+%%% process has started by using {@link zuuid:config/1}.
 %%% @end
 
 -module(zuuid_man).
@@ -62,6 +60,7 @@
 
 %%% Startup
 
+-spec start_link() -> {ok, pid()} | {error, term()}.
 %% @doc
 %% @private
 %% Startup function -- intended to be called by zuuid_sup.
@@ -69,12 +68,11 @@
 %% Error conditions are documented in the gen_server module:
 %% http://zxq9.com/erlang/docs/reg/18.0/lib/stdlib-2.5/doc/html/gen_server.html#start_link-4
 
--spec start_link() -> {ok, pid()} | {error, term()}.
-
 start_link() ->
     start_link(none).
 
 
+-spec start_link(none) -> {ok, pid()} | {error, term()}.
 %% @doc
 %% @private
 %% Alternative pre-configured startup, currently only ever passed 'none' as an argument.
@@ -82,12 +80,11 @@ start_link() ->
 %% Error conditions are documented in the gen_server module:
 %% http://zxq9.com/erlang/docs/reg/18.0/lib/stdlib-2.5/doc/html/gen_server.html#start_link-4
 
--spec start_link(none) -> {ok, pid()} | {error, term()}.
-
 start_link(Args) ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, Args, []).
 
 
+-spec init(term()) -> {ok, state()}.
 %% @doc
 %% gen_server callback for startup.
 %%
@@ -95,8 +92,6 @@ start_link(Args) ->
 %% generation of version 1 and 2 UUIDs. Users are advised to configure
 %% the uuid state manager after startup to customize the state if desired.
 %% @see zuuid:config/1.
-
--spec init(term()) -> {ok, state()}.
 
 init(_) ->
     {ok, #s{}}.
@@ -159,17 +154,17 @@ code_change(_, State, _) ->
 %%% UUID generation
 
 %% V1
+
+-spec v1(State) -> {UUID, NewState}
+    when State    :: state(),
+         UUID     :: zuuid:uuid(),
+         NewState :: state().
 %% Generate a version 1 UUID in accordance with RFC 4122.
 %% (http://www.ietf.org/rfc/rfc4122.txt)
 %%
 %% This function checks that the last generated value is not the same as the current
 %% one (single-history duplicate detection), generating a new one with an updated
 %% clock sequence if it is.
-
--spec v1(State) -> {UUID, NewState}
-    when State    :: state(),
-         UUID     :: zuuid:uuid(),
-         NewState :: state().
 
 v1(State = #s{clock_seq = Seq, clock_adj = Adj, node = Node, last_v1 = Last}) ->
     case gen_v1(Seq, Node) of
@@ -181,9 +176,8 @@ v1(State = #s{clock_seq = Seq, clock_adj = Adj, node = Node, last_v1 = Last}) ->
     end.
 
 
-%% Assembly of version 1 UUID.
-
 -spec gen_v1(zuuid:clock_seq(), <<_:48>>) -> zuuid:uuid().
+%% Assembly of version 1 UUID.
 
 gen_v1(ClockSeq, Node) ->
     GregorianInterval = ?OFFSET + erlang:system_time(nano_seconds) div 100,
@@ -194,11 +188,6 @@ gen_v1(ClockSeq, Node) ->
 
 
 %% V2
-%% Generate a version 2 (DEC Security) UUID using stored ID values.
-%%
-%% This function checks that the last generated value is not the same as the current
-%% one (single-history duplicate detection), generating a new one with an updated
-%% clock sequence if it is.
 
 -spec v2(PosixID, LocalID, State) -> {UUID, NewState}
     when PosixID  :: zuuid:posix_id(),
@@ -206,6 +195,11 @@ gen_v1(ClockSeq, Node) ->
          State    :: state(),
          UUID     :: zuuid:uuid(),
          NewState :: state().
+%% Generate a version 2 (DEC Security) UUID using stored ID values.
+%%
+%% This function checks that the last generated value is not the same as the current
+%% one (single-history duplicate detection), generating a new one with an updated
+%% clock sequence if it is.
 
 v2(PosixID,
    LocalID,
@@ -220,7 +214,6 @@ v2(PosixID,
     end.
 
 
-%% Assembly of version 2 UUID.
 
 -spec gen_v2(PosixID, LocalID, ClockSeq, MAC) -> UUID
     when PosixID  :: zuuid:posix_id(),
@@ -228,6 +221,7 @@ v2(PosixID,
          ClockSeq :: zuuid:clock_seq(),
          MAC      :: zuuid:ieee802mac(),
          UUID     :: zuuid:uuid().
+%% Assembly of version 2 UUID.
 
 gen_v2(PosixID, LocalID, ClockSeq, Node) ->
     GregorianInterval = ?OFFSET + erlang:system_time(nano_seconds) div 100,
@@ -272,12 +266,11 @@ config(_, State) ->
 
 %%% Utilities
 
+-spec check_offset() -> true.
 %% @doc
 %% An explanation and hard-coded test of the magic constant macro ?OFFSET,
 %% which defines the difference in nanoseconds between the RFC 4122 accounting
 %% date for UUID generation and the beginning of the Unix epoch.
-
--spec check_offset() -> true.
 
 check_offset() ->
     Greg = calendar:datetime_to_gregorian_seconds({{1582, 10, 15}, {0, 0, 0}}),

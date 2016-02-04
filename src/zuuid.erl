@@ -70,8 +70,9 @@
 -define(X500_NS, <<107,167,184,20,157,173,17,209,128,180,0,192,79,212,48,200>>).
 
 
-%%% Application
+%%% Application services
 
+-spec start() -> ok.
 %% @doc
 %% Starts the zuuid application, spawning a supervisor and a worker to manage
 %% state generation details for version 1 and 2 UUIDs and ensure duplicates
@@ -82,21 +83,26 @@
 %% (versions 3 and 5 are actually pure functions, while 4 has only the side effect
 %% of calling `crypto:strong_rand_bytes/1').
 
--spec start() -> ok.
-
 start() ->
     application:start(?MODULE, permanent).
 
 
+-spec stop() -> ok.
 %% @doc
 %% Stops the zuuid application.
-
--spec stop() -> ok.
 
 stop() ->
     application:stop(?MODULE).
 
 
+-spec config(Value) -> Result
+    when Value  :: {clock_seq, random | clock_seq()}
+                 | {node,      random | ieee802mac() | bad_mac}
+                 | {posix_id,  random | posix_id()}
+                 | {local_id,  random | local_id()},
+         Result :: ok
+                 | {error, Reason},
+         Reason :: bad_mac.
 %% @doc
 %% Allows zuuid application to be configured after startup with any desired
 %% values that would affect generation of version 1 or 2 UUIDs (versions 3, 4
@@ -110,21 +116,13 @@ stop() ->
 %% '''
 %% @see zuuid:read_mac/1.
 
--spec config(Value) -> Result
-    when Value  :: {clock_seq, random | clock_seq()}
-                 | {node,      random | ieee802mac() | bad_mac}
-                 | {posix_id,  random | posix_id()}
-                 | {local_id,  random | local_id()},
-         Result :: ok
-                 | {error, Reason},
-         Reason :: bad_mac.
-
 config({node, bad_mac}) ->
     {error, bad_mac};
 config(Value) ->
     gen_server:cast(zuuid_man, {config, Value}).
 
 
+-spec start(normal, term()) -> {ok, pid()}.
 %% @doc
 %% @private
 %% Application behavior callback.
@@ -132,12 +130,11 @@ config(Value) ->
 %% Do not call this function. It only accepts `normal' as a start type and
 %% disregards any starting arguments.
 
--spec start(normal, term()) -> {ok, pid()}.
-
 start(normal, Args) ->
     zuuid_sup:start_link(Args).
 
 
+-spec stop(term()) -> ok.
 %% @doc
 %% @private
 %% Application behavior callback.
@@ -145,14 +142,13 @@ start(normal, Args) ->
 %% Stops the application, disregarding any arguments and performing no
 %% spin-down tasks.
 
--spec stop(term()) -> ok.
-
 stop(_) ->
     ok.
 
 
-%%% Interface
+%%% UUID Utility Interface
 
+-spec v1() -> uuid().
 %% @doc
 %% Generate an RFC 4122 version 1 UUID.
 %%
@@ -165,12 +161,11 @@ stop(_) ->
 %% generator process at the time it is called. The state (MAC address,
 %% clock sequence, etc.) can be updated by calling config/1.
 
--spec v1() -> uuid().
-
 v1() ->
     gen_server:call(zuuid_man, v1).
 
 
+-spec v2() -> uuid().
 %% @doc
 %% Generate an RFC 4122 version 2 (DEC Security) UUID with current ID values.
 %%
@@ -187,12 +182,11 @@ v1() ->
 %% (MAC address, Posix user and local/group IDs, clock sequence, etc.) can be
 %% updated by calling config/1.
 
--spec v2() -> uuid().
-
 v2() ->
     gen_server:call(zuuid_man, v2).
 
 
+-spec v2(posix_id(), local_id()) -> uuid().
 %% @doc
 %% Generate an RFC 4122 version 2 (DEC Security) UUID with custom ID values.
 %% 
@@ -202,20 +196,21 @@ v2() ->
 %% This function is like v2/0, but allows supplying the Posix ID values
 %% without reconfiguring the UUID generator process.
 
--spec v2(posix_id(), local_id()) -> uuid().
-
 v2(PosixID, LocalID) ->
     gen_server:call(zuuid_man, {v2, PosixID, LocalID}).
 
 
-%% @equiv v3(nil, Name)
-
 -spec v3(iodata()) -> uuid().
+%% @equiv v3(nil, Name)
 
 v3(Name) ->
     v3(nil, Name).
 
 
+-spec v3(Prefix, Name) -> uuid()
+    when Prefix :: namespace()
+                 | iodata(),
+         Name   :: iodata().
 %% @doc
 %% Generate an RFC 4122 version 3 UUID (md5 hash).
 %%
@@ -224,11 +219,6 @@ v3(Name) ->
 %% namespace.
 %%
 %% Calling `v3(Name)' is the same as calling `v3(nil, Name)'.
-
--spec v3(Prefix, Name) -> uuid()
-    when Prefix :: namespace()
-                 | iodata(),
-         Name   :: iodata().
 
 v3(nil, Name) ->
     <<A:48, _:4, B:12, _:2, C:62>> = crypto:hash(md5, Name),
@@ -247,9 +237,8 @@ v3(Data, Name) ->
     v3_hash(Data, Name).
 
 
-%% @equiv zuuid:v3(crypto:strong_rand_bytes(16), Name)
-
 -spec v3rand(iodata()) -> uuid().
+%% @equiv zuuid:v3(crypto:strong_rand_bytes(16), Name)
 
 v3rand(Name) ->
     v3_hash(crypto:strong_rand_bytes(16), Name).
@@ -264,6 +253,7 @@ v3_hash(Z, X) ->
     {uuid, <<A:48, Version:4, B:12, Variant:2, C:62>>}.
 
 
+-spec v4() -> uuid().
 %% @doc
 %% Generate an RFC 4122 version 4 UUID (strongly random UUID).
 %%
@@ -275,8 +265,6 @@ v3_hash(Z, X) ->
 %% could happen. If this call fails the caller will crash if it does not catch
 %% the exception.
 
--spec v4() -> uuid().
-
 v4() ->
     <<A:48, _:4, B:12, _:2, C:62>> = crypto:strong_rand_bytes(16),
     Variant = 2,  % Indicates RFC 4122
@@ -284,25 +272,23 @@ v4() ->
     {uuid, <<A:48, Version:4, B:12, Variant:2, C:62>>}.
 
 
-%% @equiv v5(nil, Name)
-
 -spec v5(iodata()) -> uuid().
+%% @equiv v5(nil, Name)
 
 v5(Name) ->
     v5(nil, Name).
 
 
+-spec v5(Prefix, Name) -> uuid()
+    when Prefix :: namespace()
+                 | iodata(),
+         Name   :: iodata().
 %% @doc
 %% Generate an RFC 4122 version 5 UUID (truncated sha1 hash).
 %%
 %% This function provides atom values for RFC 4122 appendix C namespaces,
 %% a nil namespace (direct hash over single argument), and any arbitrary
 %% namespace.
-
--spec v5(Prefix, Name) -> uuid()
-    when Prefix :: namespace()
-                 | iodata(),
-         Name   :: iodata().
 
 v5(nil, Name) ->
     v5_hash(<<0:128>>, Name);
@@ -318,12 +304,11 @@ v5(Data, Name) ->
     v5_hash(Data, Name).
 
 
+-spec v5rand(iodata()) -> uuid().
 %% @doc
 %% Generate an RFC 4122 version 5 UUID (truncated sha1 hash) with a random
 %% namespace.
 %% @equiv zuuid:v5(crypto:strong_rand_bytes(16), Name)
-
--spec v5rand(iodata()) -> uuid().
 
 v5rand(Name) ->
     v5_hash(crypto:strong_rand_bytes(16), Name).
@@ -338,15 +323,20 @@ v5_hash(Z, X) ->
     {uuid, <<A:48, Version:4, B:12, Variant:2, C:62>>}.
 
 
+-spec nil() -> uuid().
 %% @doc
 %% Generate an RFC 4122 nil UUID.
-
--spec nil() -> uuid().
 
 nil() ->
     {uuid, <<0:128>>}.
 
 
+-spec read_uuid(Input) -> Result
+    when Input  :: uuid()
+                 | string()
+                 | binary(),
+         Result :: uuid()
+                 | bad_uuid.
 %% @doc
 %% Takes serialized representation of a UUID/GUID in a variety of formats
 %% and returns an internalized representation or the atom 'bad_uuid' in
@@ -367,13 +357,6 @@ nil() ->
 %% <<107,167,184,16,157,173,17,209,128,180,0,192,79,212,48,200>>
 %% '''
 %% Hexadecimal "letter" values are not case sensitive.
-
--spec read_uuid(Input) -> Result
-    when Input  :: uuid()
-                 | string()
-                 | binary(),
-         Result :: uuid()
-                 | bad_uuid.
 
 read_uuid(UUID = <<_:128>>) ->
     {uuid, UUID};
@@ -398,6 +381,11 @@ read_uuid_string(UUID) ->
     end.
 
 
+-spec read_mac(Input) -> Result
+    when Input  :: string()
+                 | binary(),
+         Result :: ieee802mac()
+                 | bad_mac.
 %% @doc
 %% Takes a serialized representation of an IEEE 802 MAC address in a variety of
 %% formats and returns an internalized representation (currently a 48-bit binary)
@@ -437,12 +425,6 @@ read_uuid_string(UUID) ->
 %% Returns: `<<18,52,86,120,144,171>>'
 %%
 %% Hexadecimal "letter" values are not case sensitive.
-
--spec read_mac(Input) -> Result
-    when Input  :: string()
-                 | binary(),
-         Result :: ieee802mac()
-                 | bad_mac.
 
 read_mac(MAC = <<_:12/binary>>) ->
     read_mac_string(binary_to_list(MAC));
@@ -487,19 +469,6 @@ read_mac_string(MAC) ->
     end.
 
 
-%% @doc
-%% Determine the variant and version of a UUID.
-%%
-%% Currently detects only RFC-4122 defined variant/versions.
-%% Some homespun or wildly non-compliant 128-bit identifier values can
-%% incidentally appear to comply with RFC-4122, so not all arguments are
-%% guaranteed to return an accurate result.
-%%
-%% (Noncompliant values can be used by the rest of this module, though).
-%%
-%% Returns the atom 'bad_uuid' on non-UUID values, so composition with
-%% {@link read_uuid/1} will return sane values on bad external input.
-
 -spec version(UUID) -> VarVer
     when UUID    :: uuid()
                   | term(),
@@ -514,6 +483,18 @@ read_mac_string(MAC) ->
                   | compatibility
                   | nil
                   | nonstandard.
+%% @doc
+%% Determine the variant and version of a UUID.
+%%
+%% Currently detects only RFC-4122 defined variant/versions.
+%% Some homespun or wildly non-compliant 128-bit identifier values can
+%% incidentally appear to comply with RFC-4122, so not all arguments are
+%% guaranteed to return an accurate result.
+%%
+%% (Noncompliant values can be used by the rest of this module, though).
+%%
+%% Returns the atom 'bad_uuid' on non-UUID values, so composition with
+%% {@link read_uuid/1} will return sane values on bad external input.
 
 version({uuid, <<_:64, 0:1, _:63>>}) ->
     {ncs, compatibility};
@@ -532,15 +513,21 @@ version(_) ->
     bad_uuid.
 
 
+-spec string(uuid()) -> string().
 %% @deprecated Use {@link string/2} instead.
 %% @equiv zuuid:string(UUID, brackets)
-
--spec string(uuid()) -> string().
 
 string(UUID) ->
     string(UUID, brackets).
 
 
+-spec string(UUID, Format) -> Serialized
+    when UUID       :: uuid(),
+         Format     :: brackets
+                     | standard
+                     | no_break
+                     | raw_bits,
+         Serialized :: string().
 %% @doc
 %% Accept an internal UUID representation and return a canonical string
 %% representation in one of three formats, or a string of 0's and 1's representing
@@ -558,14 +545,6 @@ string(UUID) ->
 %% "01101011101001111011100000010000100111011010110100010001110100011000000010110100000000001100000001001111110101000011000011001000"
 %% '''
 
--spec string(UUID, Format) -> Serialized
-    when UUID       :: uuid(),
-         Format     :: brackets
-                     | standard
-                     | no_break
-                     | raw_bits,
-         Serialized :: string().
-
 string({uuid, <<A:4/binary, B:2/binary, C:2/binary, D:2/binary, E:6/binary>>}, brackets) ->
     Parts = [{A, 8}, {B, 4}, {C, 4}, {D, 4}, {E, 12}],
     "{" ++ string:join(bins_to_strhexs(Parts), "-") ++ "}";
@@ -579,15 +558,21 @@ string({uuid, Binary}, raw_bits) ->
     string:right(integer_to_list(binary:decode_unsigned(Binary), 2), 128, $0).
 
 
+-spec binary(uuid()) -> binary().
 %% @deprecated Use {@link binary/2} instead.
 %% @equiv zuuid:binary(UUID, brackets)
-
--spec binary(uuid()) -> binary().
 
 binary(UUID) ->
     binary(UUID, brackets).
 
 
+-spec binary(UUID, Format) -> Serialized
+    when UUID       :: uuid(),
+         Format     :: brackets
+                     | standard
+                     | no_break
+                     | raw_bits,
+         Serialized :: binary().
 %% @doc
 %% Accept an internal UUID representation, and return a canonical binary
 %% string representation in one of three formats, or raw bits as an Erlang term.
@@ -604,14 +589,6 @@ binary(UUID) ->
 %% <<107,167,184,16,157,173,17,209,128,180,0,192,79,212,48,200>>
 %% '''
 
--spec binary(UUID, Format) -> Serialized
-    when UUID       :: uuid(),
-         Format     :: brackets
-                     | standard
-                     | no_break
-                     | raw_bits,
-         Serialized :: binary().
-
 binary({uuid, Bits}, raw_bits) ->
     Bits;
 binary(UUID, Format) ->
@@ -620,6 +597,14 @@ binary(UUID, Format) ->
 
 %%% ID utilities
 
+-spec get_hw_addr() -> Result
+    when Result  :: {ok, Address}
+                  | {error, Reason},
+         Address :: <<_:48>>
+                  | <<_:64>>,
+         Reason  :: no_iface
+                  | no_address
+                  | inet:posix().
 %% @doc
 %% Attempt to retrieve the (or a) hardware address from the current machine.
 %% 
@@ -648,15 +633,6 @@ binary(UUID, Format) ->
 %% this function will return the value {error, no_address}.
 %% @see zuuid:config/1.
 
--spec get_hw_addr() -> Result
-    when Result  :: {ok, Address}
-                  | {error, Reason},
-         Address :: <<_:48>>
-                  | <<_:64>>,
-         Reason  :: no_iface
-                  | no_address
-                  | inet:posix().
-
 get_hw_addr() ->
     case inet:getifaddrs() of
         {ok, []}         -> {error, no_iface};
@@ -675,6 +651,15 @@ scan_hw_addr([{_, Info} | T]) ->
     end.
 
 
+-spec get_hw_addr(Name) -> Result
+    when Name    :: string(),
+         Result  :: {ok, Address}
+                  | {error, Reason},
+         Address :: <<_:48>>
+                  | <<_:64>>,
+         Reason  :: no_iface
+                  | no_address
+                  | inet:posix().
 %% @doc
 %% Attempt to retrieve the (or a) hardware address from a specific named
 %% network interface.
@@ -717,16 +702,6 @@ scan_hw_addr([{_, Info} | T]) ->
 %% docs and/or query your own system with inet:getifaddrs/0 to discover valid schemes
 %% and existing devices.
 
--spec get_hw_addr(Name) -> Result
-    when Name    :: string(),
-         Result  :: {ok, Address}
-                  | {error, Reason},
-         Address :: <<_:48>>
-                  | <<_:64>>,
-         Reason  :: no_iface
-                  | no_address
-                  | inet:posix().
-
 get_hw_addr(Name) ->
     case inet:getifaddrs() of
         {ok, []}         -> {error, no_iface};
@@ -747,6 +722,7 @@ scan_hw_addr(Name, [_ | T]) ->
     scan_hw_addr(Name, T).
 
 
+-spec random_mac() -> ieee802mac().
 %% @doc
 %% Generate a random IEEE 802 MAC address in compliance with RFC 4122.
 %%
@@ -757,48 +733,43 @@ scan_hw_addr(Name, [_ | T]) ->
 %%
 %% To convert a hardware address in hex string notation use `read_mac/1'.
 
--spec random_mac() -> ieee802mac().
-
 random_mac() ->
     <<A:7, _:1, B:40>> = crypto:strong_rand_bytes(6),
     BroadcastBit = 1, % RFC 4122 requires this be set for randomized MACs
     <<A:7, BroadcastBit:1, B:40>>.
 
 
+-spec random_clock() -> clock_seq().
 %% @doc
 %% Generate a random 14-bit clock sequence.
 %%
 %% This function will always be called automatically when zuuid:start/0
 %% is called the first time.
 
--spec random_clock() -> clock_seq().
-
 random_clock() ->
     <<_:2, ClockSeq:14>> = crypto:strong_rand_bytes(2),
     ClockSeq.
 
 
+-spec random_uid() -> posix_id().
 %% @doc
 %% Generate a random 4-byte value for use as POSIX UID in version 2 UUID generation.
 %%
 %% This function will always be called automatically when zuuid:start/0
 %% is called the first time.
 
--spec random_uid() -> posix_id().
-
 random_uid() ->
     <<ID:32>> = crypto:strong_rand_bytes(4),
     ID.
 
 
+-spec random_lid() -> local_id().
 %% @doc
 %% Generate a random 8-bit value for use as POSIX Group/Local ID value for use
 %% in version 2 UUID generation.
 %%
 %% This function will always be called automatically when zuuid:start/0
 %% is called the first time.
-
--spec random_lid() -> local_id().
 
 random_lid() ->
     <<ID:8>> = crypto:strong_rand_bytes(1),

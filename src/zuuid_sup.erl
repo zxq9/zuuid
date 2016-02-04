@@ -25,11 +25,6 @@
 
 -pure([init/1]).
 
-%% @private
-%% Called by zuuid:start/0.
-%%
-%% Error conditions are explained in the supervisor module docs:
-%% http://zxq9.com/erlang/docs/reg/18.0/lib/stdlib-2.5/doc/html/supervisor.html#start_link-3
 -spec start_link(Args) -> Result
     when Args   :: term(),
          Result :: {ok, pid()}
@@ -37,11 +32,17 @@
          Reason :: {already_started, pid()}
                  | {shutdown, term()}
                  | term().
+%% @private
+%% Called by zuuid:start/0.
+%%
+%% Error conditions are explained in the supervisor module docs:
+%% http://zxq9.com/erlang/docs/reg/18.0/lib/stdlib-2.5/doc/html/supervisor.html#start_link-3
 
 start_link(_) ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, none).
 
 
+-spec init(none) -> {ok, {supervisor:sup_flags(), [supervisor:child_spec()]}}.
 %% @doc
 %% @private
 %% Do not call this function directly -- it is exported only because it is a
@@ -77,8 +78,6 @@ start_link(_) ->
 %% acquired no external resources and maintains no persistent state on its own there
 %% is no benefit in not brutally killing on termination if it exits abnormally or hangs
 %% for some reason on shutdown.
-
--spec init(none) -> {ok, {supervisor:sup_flags(), [supervisor:child_spec()]}}.
 
 init(none) ->
     RestartStrategy =
