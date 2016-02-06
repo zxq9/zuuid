@@ -15,7 +15,7 @@
 -author("Craig Everett <zxq9@zxq9.com>").
 -behavior(application).
 
--export([start/0, config/1, stop/0]).
+-export([start/0, config/1, randomize/1, stop/0]).
 -export([start/2, stop/1]).
 -export([v1/0,
          v2/0, v2/2,
@@ -120,6 +120,32 @@ config({node, bad_mac}) ->
     {error, bad_mac};
 config(Value) ->
     gen_server:cast(zuuid_man, {config, Value}).
+
+
+-spec randomize(Attribute) -> ok
+    when Attribute :: posix_id
+                    | local_id
+                    | clock_seq
+                    | node
+                    | all.
+%% @doc
+%% A convenience function to compliment {@link config/1} that randomizes any attribute
+%% of the uuid_man processes (the state manager for version 1 and 2 UUID generators).
+
+randomize(posix_id) ->
+    config({posix_id, random_uid()});
+randomize(local_id) ->
+    config({local_id, random_lid()});
+randomize(clock_seq) ->
+    config({clock_seq, random_clock()});
+randomize(node) ->
+    config({node, random_mac()});
+randomize(all) ->
+    Attributes = [{posix_id,  random_uid()},
+                  {local_id,  random_lid()},
+                  {clock_seq, random_clock()},
+                  {node,      random_mac()}],
+    lists:foreach(fun config/1, Attributes).
 
 
 -spec start(normal, term()) -> {ok, pid()}.
@@ -722,6 +748,7 @@ scan_hw_addr(Name, [_ | T]) ->
 
 
 -spec random_mac() -> ieee802mac().
+%% @deprecated Use {@link randomize/1} instead.
 %% @doc
 %% Generate a random IEEE 802 MAC address in compliance with RFC 4122.
 %%
@@ -739,6 +766,7 @@ random_mac() ->
 
 
 -spec random_clock() -> clock_seq().
+%% @deprecated Use {@link randomize/1} instead.
 %% @doc
 %% Generate a random 14-bit clock sequence.
 %%
@@ -751,6 +779,7 @@ random_clock() ->
 
 
 -spec random_uid() -> posix_id().
+%% @deprecated Use {@link randomize/1} instead.
 %% @doc
 %% Generate a random 4-byte value for use as POSIX UID in version 2 UUID generation.
 %%
@@ -763,6 +792,7 @@ random_uid() ->
 
 
 -spec random_lid() -> local_id().
+%% @deprecated Use {@link randomize/1} instead.
 %% @doc
 %% Generate a random 8-bit value for use as POSIX Group/Local ID value for use
 %% in version 2 UUID generation.
