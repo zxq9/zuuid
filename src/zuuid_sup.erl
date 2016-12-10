@@ -43,7 +43,6 @@ start_link(_) ->
 
 
 -spec init(none) -> {ok, {supervisor:sup_flags(), [supervisor:child_spec()]}}.
-%% @doc
 %% @private
 %% Do not call this function directly -- it is exported only because it is a
 %% necessary part of the OTP
