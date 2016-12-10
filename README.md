@@ -75,6 +75,13 @@ https://github.com/zxq9/zuuid
 ## An Example Shell Session
 
 ```
+    ceverett@changa:~/vcs/zuuid$ ./zmake
+    up_to_date
+    Writing docs...
+    ceverett@changa:~/vcs/zuuid$ erl -pa ebin
+    Erlang/OTP 19 [erts-8.1] [source] [64-bit] [smp:2:2] [async-threads:10] [kernel-poll:false]
+    
+    Eshell V8.1  (abort with ^G)
     1> zuuid:start().
     ok
     2> {ok, MAC} = zuuid:get_hw_addr("eth0").
@@ -82,25 +89,25 @@ https://github.com/zxq9/zuuid
     3> zuuid:config({node, MAC}).
     ok
     4> UUID = zuuid:v1().
-    {uuid,<<156,80,133,236,201,174,17,229,154,56,184,107,35,128,22,24>>}
+    {uuid,<<210,125,3,51,190,133,17,230,155,227,184,107,35,128,22,24>>}
     5> zuuid:version(UUID).
     {rfc4122,1}
     6> zuuid:string(UUID).
-    "{9C5085EC-C9AE-11E5-9A38-B86B23801618}"
+    "D27D0333-BE85-11E6-9BE3-B86B23801618"
     7> zuuid:binary(zuuid:v4()).
-    <<"{A2AF6D62-0D40-446E-BF89-108082A4E809}">>
-    8> U2 = zuuid:read_uuid("12345678-90ab-cdef-1234-567890abcdef").
+    <<"8B3831A6-7BF3-4477-BFEE-3BF54DEA4537">>
+    8> UUID2 = zuuid:read_uuid("12345678-90ab-cdef-1234-567890abcdef").     
     {uuid,<<18,52,86,120,144,171,205,239,18,52,86,120,144,171,205,239>>}
-    9> zuuid:version(U2).
+    9> zuuid:version(UUID2).
     {ncs,compatibility}
-    10> zuuid:string(U2).
-    "{12345678-90AB-CDEF-1234-567890ABCDEF}"
+    10> zuuid:string(UUID2).
+    "12345678-90AB-CDEF-1234-567890ABCDEF"
     11> NewMAC = zuuid:read_mac("12:34:56:78:90:ab").
     <<18,52,86,120,144,171>>
     12> zuuid:config({node, NewMAC}).
     ok
     13> zuuid:string(zuuid:v1()).
-    "{86BAD2C8-C9AF-11E5-9A38-1234567890AB}"
+    "1852C4EC-BE86-11E6-9BE3-1234567890AB"
 ```
 
 ## Contributing
