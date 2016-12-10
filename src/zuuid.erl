@@ -23,11 +23,10 @@
          v4/0,
          v5/1, v5/2, v5rand/1,
          nil/0,
-         read_uuid/1, read_mac/1, version/1,
+         read_uuid/1, version/1,
          string/1, string/2,
          binary/1, binary/2,
-         get_hw_addr/0, get_hw_addr/1,
-         random_mac/0, random_clock/0, random_uid/0, random_lid/0]).
+         read_mac/1, get_hw_addr/0, get_hw_addr/1]).
 
 
 %%% Side-effect free
@@ -116,10 +115,7 @@ stop() ->
 %% '''
 %% @see zuuid:read_mac/1.
 
-config({node, bad_mac}) ->
-    {error, bad_mac};
-config(Value) ->
-    gen_server:cast(zuuid_man, {config, Value}).
+config(Value) -> zuuid_man:config(Value).
 
 
 -spec randomize(Attribute) -> ok
@@ -133,23 +129,20 @@ config(Value) ->
 %% of the uuid_man processes (the state manager for version 1 and 2 UUID generators).
 
 randomize(posix_id) ->
-    config({posix_id, random_uid()});
+    zuuid_man:config({posix_id, random});
 randomize(local_id) ->
-    config({local_id, random_lid()});
+    zuuid_man:config({local_id, random});
 randomize(clock_seq) ->
-    config({clock_seq, random_clock()});
+    zuuid_man:config({clock_seq, random});
 randomize(node) ->
-    config({node, random_mac()});
+    zuuid_man:config({node, random});
 randomize(all) ->
-    Attributes = [{posix_id,  random_uid()},
-                  {local_id,  random_lid()},
-                  {clock_seq, random_clock()},
-                  {node,      random_mac()}],
-    lists:foreach(fun config/1, Attributes).
+    Attributes = [posix_id, local_id, clock_seq, node],
+    Cast = fun(Attribute) -> zuuid_man:config({Attribute, random}) end,
+    lists:foreach(Cast, Attributes).
 
 
 -spec start(normal, term()) -> {ok, pid()}.
-%% @doc
 %% @private
 %% Application behavior callback.
 %%
@@ -161,7 +154,6 @@ start(normal, Args) ->
 
 
 -spec stop(term()) -> ok.
-%% @doc
 %% @private
 %% Application behavior callback.
 %%
@@ -407,6 +399,132 @@ read_uuid_string(UUID) ->
     end.
 
 
+-spec version(UUID) -> VarVer
+    when UUID    :: uuid()
+                  | term(),
+         VarVer  :: {Variant, Version}
+                  | bad_uuid,
+         Variant :: rfc4122
+                  | ncs
+                  | microsoft
+                  | reserved
+                  | other,
+         Version :: 1..5
+                  | compatibility
+                  | nil
+                  | nonstandard.
+%% @doc
+%% Determine the variant and version of a UUID.
+%%
+%% Currently detects only RFC-4122 defined variant/versions.
+%% Some homespun or wildly non-compliant 128-bit identifier values can
+%% incidentally appear to comply with RFC-4122, so not all arguments are
+%% guaranteed to return an accurate result.
+%%
+%% (Noncompliant values can be used by the rest of this module, though).
+%%
+%% Returns the atom 'bad_uuid' on non-UUID values, so composition with
+%% {@link read_uuid/1} will return sane values on bad external input.
+
+version({uuid, <<_:64, 0:1, _:63>>}) ->
+    {ncs, compatibility};
+version({uuid, <<_:48, V:4, _:12, 2:2, _:62>>})
+        when 0 < V andalso V < 6 ->
+    {rfc4122, V};
+version({uuid, <<_:64, 6:3, _:61>>}) ->
+    {microsoft, compatibility};
+version({uuid, <<_:64, 7:3, _:61>>}) ->
+    {reserved, nonstandard};
+version({uuid, <<0:128>>}) ->
+    {rfc4122, nil};
+version({uuid, <<_:128>>}) ->
+    {other, nonstandard};
+version(_) ->
+    bad_uuid.
+
+
+-spec string(uuid()) -> string().
+%% @equiv zuuid:string(UUID, standard)
+
+string(UUID) ->
+    string(UUID, standard).
+
+
+-spec string(UUID, Format) -> Serialized
+    when UUID       :: uuid(),
+         Format     :: standard
+                     | brackets
+                     | no_break
+                     | raw_bits,
+         Serialized :: string().
+%% @doc
+%% Accept an internal UUID representation and return a canonical string
+%% representation in one of three formats, or a string of 0's and 1's representing
+%% each bit of the 128-bit value.
+%%
+%% For example:
+%% ```
+%% 1> zuuid:string(zuuid:read_uuid(<<"6BA7B810-9DAD-11D1-80B4-00C04FD430C8">>), standard).
+%% "6BA7B810-9DAD-11D1-80B4-00C04FD430C8"
+%% 2> zuuid:string(zuuid:read_uuid(<<"6BA7B810-9DAD-11D1-80B4-00C04FD430C8">>), brackets).
+%% "{6BA7B810-9DAD-11D1-80B4-00C04FD430C8}"
+%% 3> zuuid:string(zuuid:read_uuid(<<"6BA7B810-9DAD-11D1-80B4-00C04FD430C8">>), no_break).
+%% "6BA7B8109DAD11D180B400C04FD430C8"
+%% 4> zuuid:string(zuuid:read_uuid(<<"6BA7B810-9DAD-11D1-80B4-00C04FD430C8">>), raw_bits).
+%% "01101011101001111011100000010000100111011010110100010001110100011000000010110100000000001100000001001111110101000011000011001000"
+%% '''
+
+string({uuid, <<A:4/binary, B:2/binary, C:2/binary, D:2/binary, E:6/binary>>}, brackets) ->
+    Parts = [{A, 8}, {B, 4}, {C, 4}, {D, 4}, {E, 12}],
+    "{" ++ string:join(bins_to_strhexs(Parts), "-") ++ "}";
+string({uuid, <<A:4/binary, B:2/binary, C:2/binary, D:2/binary, E:6/binary>>}, standard) ->
+    Parts = [{A, 8}, {B, 4}, {C, 4}, {D, 4}, {E, 12}],
+    string:join(bins_to_strhexs(Parts), "-");
+string({uuid, Binary}, no_break) ->
+    string:right(integer_to_list(binary:decode_unsigned(Binary), 16), 32, $0);
+string({uuid, Binary}, raw_bits) ->
+    string:right(integer_to_list(binary:decode_unsigned(Binary), 2), 128, $0).
+
+
+-spec binary(uuid()) -> binary().
+%% @equiv zuuid:binary(UUID, standard)
+
+binary(UUID) ->
+    binary(UUID, standard).
+
+
+-spec binary(UUID, Format) -> Serialized
+    when UUID       :: uuid(),
+         Format     :: standard
+                     | brackets
+                     | no_break
+                     | raw_bits,
+         Serialized :: binary().
+%% @doc
+%% Accept an internal UUID representation, and return a canonical binary
+%% string representation in one of three formats, or raw bits as an Erlang term.
+%%
+%% For example:
+%% ```
+%% 1> zuuid:binary(zuuid:read_uuid("6BA7B810-9DAD-11D1-80B4-00C04FD430C8"), standard).
+%% <<"6BA7B810-9DAD-11D1-80B4-00C04FD430C8">>
+%% 2> zuuid:binary(zuuid:read_uuid("6BA7B810-9DAD-11D1-80B4-00C04FD430C8"), brackets).
+%% <<"{6BA7B810-9DAD-11D1-80B4-00C04FD430C8}">>
+%% 3> zuuid:binary(zuuid:read_uuid("6BA7B810-9DAD-11D1-80B4-00C04FD430C8"), no_break).
+%% <<"6BA7B8109DAD11D180B400C04FD430C8">>
+%% 4> zuuid:binary(zuuid:read_uuid("6BA7B810-9DAD-11D1-80B4-00C04FD430C8"), raw_bits).
+%% <<107,167,184,16,157,173,17,209,128,180,0,192,79,212,48,200>>
+%% '''
+
+binary({uuid, Bits}, raw_bits) ->
+    Bits;
+binary(UUID, Format) ->
+    list_to_binary(string(UUID, Format)).
+
+
+
+%%% ID utilities
+
 -spec read_mac(Input) -> Result
     when Input  :: string()
                  | binary(),
@@ -495,133 +613,6 @@ read_mac_string(MAC) ->
     end.
 
 
--spec version(UUID) -> VarVer
-    when UUID    :: uuid()
-                  | term(),
-         VarVer  :: {Variant, Version}
-                  | bad_uuid,
-         Variant :: rfc4122
-                  | ncs
-                  | microsoft
-                  | reserved
-                  | other,
-         Version :: 1..5
-                  | compatibility
-                  | nil
-                  | nonstandard.
-%% @doc
-%% Determine the variant and version of a UUID.
-%%
-%% Currently detects only RFC-4122 defined variant/versions.
-%% Some homespun or wildly non-compliant 128-bit identifier values can
-%% incidentally appear to comply with RFC-4122, so not all arguments are
-%% guaranteed to return an accurate result.
-%%
-%% (Noncompliant values can be used by the rest of this module, though).
-%%
-%% Returns the atom 'bad_uuid' on non-UUID values, so composition with
-%% {@link read_uuid/1} will return sane values on bad external input.
-
-version({uuid, <<_:64, 0:1, _:63>>}) ->
-    {ncs, compatibility};
-version({uuid, <<_:48, V:4, _:12, 2:2, _:62>>})
-        when 0 < V andalso V < 6 ->
-    {rfc4122, V};
-version({uuid, <<_:64, 6:3, _:61>>}) ->
-    {microsoft, compatibility};
-version({uuid, <<_:64, 7:3, _:61>>}) ->
-    {reserved, nonstandard};
-version({uuid, <<0:128>>}) ->
-    {rfc4122, nil};
-version({uuid, <<_:128>>}) ->
-    {other, nonstandard};
-version(_) ->
-    bad_uuid.
-
-
--spec string(uuid()) -> string().
-%% @deprecated Use {@link string/2} instead.
-%% @equiv zuuid:string(UUID, brackets)
-
-string(UUID) ->
-    string(UUID, brackets).
-
-
--spec string(UUID, Format) -> Serialized
-    when UUID       :: uuid(),
-         Format     :: brackets
-                     | standard
-                     | no_break
-                     | raw_bits,
-         Serialized :: string().
-%% @doc
-%% Accept an internal UUID representation and return a canonical string
-%% representation in one of three formats, or a string of 0's and 1's representing
-%% each bit of the 128-bit value.
-%%
-%% For example:
-%% ```
-%% 1> zuuid:string(zuuid:read_uuid(<<"6BA7B810-9DAD-11D1-80B4-00C04FD430C8">>), standard).
-%% "6BA7B810-9DAD-11D1-80B4-00C04FD430C8"
-%% 2> zuuid:string(zuuid:read_uuid(<<"6BA7B810-9DAD-11D1-80B4-00C04FD430C8">>), brackets).
-%% "{6BA7B810-9DAD-11D1-80B4-00C04FD430C8}"
-%% 3> zuuid:string(zuuid:read_uuid(<<"6BA7B810-9DAD-11D1-80B4-00C04FD430C8">>), no_break).
-%% "6BA7B8109DAD11D180B400C04FD430C8"
-%% 4> zuuid:string(zuuid:read_uuid(<<"6BA7B810-9DAD-11D1-80B4-00C04FD430C8">>), raw_bits).
-%% "01101011101001111011100000010000100111011010110100010001110100011000000010110100000000001100000001001111110101000011000011001000"
-%% '''
-
-string({uuid, <<A:4/binary, B:2/binary, C:2/binary, D:2/binary, E:6/binary>>}, brackets) ->
-    Parts = [{A, 8}, {B, 4}, {C, 4}, {D, 4}, {E, 12}],
-    "{" ++ string:join(bins_to_strhexs(Parts), "-") ++ "}";
-string({uuid, <<A:4/binary, B:2/binary, C:2/binary, D:2/binary, E:6/binary>>}, standard) ->
-    Parts = [{A, 8}, {B, 4}, {C, 4}, {D, 4}, {E, 12}],
-    string:join(bins_to_strhexs(Parts), "-");
-string({uuid, Binary}, no_break) ->
-    string:right(integer_to_list(binary:decode_unsigned(Binary), 16), 32, $0);
-string({uuid, Binary}, raw_bits) ->
-    string:right(integer_to_list(binary:decode_unsigned(Binary), 2), 128, $0).
-
-
--spec binary(uuid()) -> binary().
-%% @deprecated Use {@link binary/2} instead.
-%% @equiv zuuid:binary(UUID, brackets)
-
-binary(UUID) ->
-    binary(UUID, brackets).
-
-
--spec binary(UUID, Format) -> Serialized
-    when UUID       :: uuid(),
-         Format     :: brackets
-                     | standard
-                     | no_break
-                     | raw_bits,
-         Serialized :: binary().
-%% @doc
-%% Accept an internal UUID representation, and return a canonical binary
-%% string representation in one of three formats, or raw bits as an Erlang term.
-%%
-%% For example:
-%% ```
-%% 1> zuuid:binary(zuuid:read_uuid("6BA7B810-9DAD-11D1-80B4-00C04FD430C8"), standard).
-%% <<"6BA7B810-9DAD-11D1-80B4-00C04FD430C8">>
-%% 2> zuuid:binary(zuuid:read_uuid("6BA7B810-9DAD-11D1-80B4-00C04FD430C8"), brackets).
-%% <<"{6BA7B810-9DAD-11D1-80B4-00C04FD430C8}">>
-%% 3> zuuid:binary(zuuid:read_uuid("6BA7B810-9DAD-11D1-80B4-00C04FD430C8"), no_break).
-%% <<"6BA7B8109DAD11D180B400C04FD430C8">>
-%% 4> zuuid:binary(zuuid:read_uuid("6BA7B810-9DAD-11D1-80B4-00C04FD430C8"), raw_bits).
-%% <<107,167,184,16,157,173,17,209,128,180,0,192,79,212,48,200>>
-%% '''
-
-binary({uuid, Bits}, raw_bits) ->
-    Bits;
-binary(UUID, Format) ->
-    list_to_binary(string(UUID, Format)).
-
-
-%%% ID utilities
-
 -spec get_hw_addr() -> Result
     when Result  :: {ok, Address}
                   | {error, Reason},
@@ -630,7 +621,7 @@ binary(UUID, Format) ->
          Reason  :: no_iface
                   | no_address
                   | inet:posix().
-%% @doc
+%% @private
 %% Attempt to retrieve the (or a) hardware address from the current machine.
 %% 
 %% This function will avoid returning the loopback address (0-0-0-0-0-0)
@@ -685,7 +676,7 @@ scan_hw_addr([{_, Info} | T]) ->
          Reason  :: no_iface
                   | no_address
                   | inet:posix().
-%% @doc
+%% @private
 %% Attempt to retrieve the (or a) hardware address from a specific named
 %% network interface.
 %%
@@ -747,65 +738,7 @@ scan_hw_addr(Name, [_ | T]) ->
     scan_hw_addr(Name, T).
 
 
--spec random_mac() -> ieee802mac().
-%% @deprecated Use {@link randomize/1} instead.
-%% @doc
-%% Generate a random IEEE 802 MAC address in compliance with RFC 4122.
-%%
-%% This function will always be called automatically when zuuid:start/0
-%% is called the first time. The IEEE 802 broadcast-bit is set on MAC
-%% addresses returned by this function, so they should never collide with
-%% actual addresses pulled from hardware components.
-%%
-%% To convert a hardware address in hex string notation use `read_mac/1'.
-
-random_mac() ->
-    <<A:7, _:1, B:40>> = crypto:strong_rand_bytes(6),
-    BroadcastBit = 1, % RFC 4122 requires this be set for randomized MACs
-    <<A:7, BroadcastBit:1, B:40>>.
-
-
--spec random_clock() -> clock_seq().
-%% @deprecated Use {@link randomize/1} instead.
-%% @doc
-%% Generate a random 14-bit clock sequence.
-%%
-%% This function will always be called automatically when zuuid:start/0
-%% is called the first time.
-
-random_clock() ->
-    <<_:2, ClockSeq:14>> = crypto:strong_rand_bytes(2),
-    ClockSeq.
-
-
--spec random_uid() -> posix_id().
-%% @deprecated Use {@link randomize/1} instead.
-%% @doc
-%% Generate a random 4-byte value for use as POSIX UID in version 2 UUID generation.
-%%
-%% This function will always be called automatically when zuuid:start/0
-%% is called the first time.
-
-random_uid() ->
-    <<ID:32>> = crypto:strong_rand_bytes(4),
-    ID.
-
-
--spec random_lid() -> local_id().
-%% @deprecated Use {@link randomize/1} instead.
-%% @doc
-%% Generate a random 8-bit value for use as POSIX Group/Local ID value for use
-%% in version 2 UUID generation.
-%%
-%% This function will always be called automatically when zuuid:start/0
-%% is called the first time.
-
-random_lid() ->
-    <<ID:8>> = crypto:strong_rand_bytes(1),
-    ID.
-
-
-%% Manipulations
+%%% Manipulations
 
 -spec strhexs_to_uuid([strhex()]) -> uuid().
 
