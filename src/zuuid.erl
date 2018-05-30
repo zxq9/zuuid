@@ -12,6 +12,7 @@
 %%% @end
 
 -module(zuuid).
+-vsn("2.0.0").
 -author("Craig Everett <zxq9@zxq9.com>").
 -behavior(application).
 

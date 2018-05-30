@@ -19,6 +19,7 @@
 %%% @end
 
 -module(zuuid_man).
+-vsn("2.0.0").
 -author("Craig Everett <zxq9@zxq9.com>").
 -behavior(gen_server).
 
