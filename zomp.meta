@@ -1,5 +1,0 @@
-{appmod,{zuuid,[]}}.
-{deps,[]}.
-{package_id,{"otpr","zuuid",{2,0,0}}}.
-{prefix,"zuuid"}.
-{type,app}.

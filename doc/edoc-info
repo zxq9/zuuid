@@ -1,3 +1,0 @@
-%% encoding: UTF-8
-{application,zuuid}.
-{modules,[zuuid,zuuid_man,zuuid_sup]}.
